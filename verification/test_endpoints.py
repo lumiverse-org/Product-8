@@ -18,6 +18,18 @@ PARENT_DIR = Path(__file__).resolve().parent.parent
 if str(PARENT_DIR) not in sys.path:
     sys.path.insert(0, str(PARENT_DIR))
 
+
+def _declared_product_id() -> str:
+    """product_id from this tree's product.yaml."""
+    for line in (PARENT_DIR / "product.yaml").read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped.startswith("product_id:"):
+            return stripped.split(":", 1)[1].strip().strip("'\"")
+    raise RuntimeError("product.yaml does not declare product_id")
+
+
+DECLARED_PRODUCT_ID = _declared_product_id()
+
 import app
 
 
@@ -33,7 +45,7 @@ class TestEndpoints(unittest.TestCase):
         cls.temp_dir = tempfile.TemporaryDirectory()
         cls.db_path = Path(cls.temp_dir.name) / "test_app.db"
         os.environ["DB_PATH"] = str(cls.db_path)
-        os.environ["PRODUCT_ID"] = "product-template"
+        os.environ["PRODUCT_ID"] = DECLARED_PRODUCT_ID
         os.environ["LOG_LEVEL"] = "error"
 
         # Apply migrations and seed
@@ -120,7 +132,7 @@ class TestEndpoints(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIsInstance(data, dict)
         self.assertEqual(data.get("contract_version"), 2)
-        self.assertEqual(data.get("product_id"), "product-template")
+        self.assertEqual(data.get("product_id"), DECLARED_PRODUCT_ID)
         self.assertTrue(data.get("digest", "").startswith("sha256:"))
 
     def test_03_metrics_endpoint(self) -> None:
